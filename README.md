@@ -7,42 +7,55 @@ started and stopped.
 By default it will provide thoses hosts: `containername.docker` and `servicename.projectfolder.docker`
 pointing to the corresponding container.
 
-### Simple usage
+## Start the container
 
-First, you have to know the IP of your `docker0` interface. It may be
-`172.17.42.1` but it could be something else. To known your IP, run the
-following command:
+It is possible to use either using the `dns.tld` label or the `DOMAIN_TLD` environment variable.
+If none of these is set it will default to `docker`.
+Only the first found will be used, the label will be tried first then the environment.
 
-    $ /sbin/ifconfig docker0 | grep "inet" | head -n1 | awk '{ print $2}' | cut -d: -f2
+    $ docker run -d --name dns-gen \
+      --publish 54:53/udp \
+      --volume /var/run/docker.sock:/var/run/docker.sock:ro \
+      --label dns.tld=my.tld
+      --environment DOMAIN_TLD=my.other.tld
+      zetaron/dns-gen
 
-Now, you can start the `dns-gen` container:
+## Ways to configure domain names on your containers
 
-    $ docker run --detach \
-      --name dns-gen \
-      --publish 172.17.42.1:53:53/udp \
-      --volume /var/run/docker.sock:/var/run/docker.sock \
-      jderusse/dns-gen
+There are two ways to assign a domain to a container.
+By default all containers are built using the TLD configured on the dns-gen container.
 
-Last thing: Register you new DnsServer in you resolv.conf
+### 1. jwilder/nginx-proxy compatible way
 
-    $ echo "nameserver 172.17.42.1" | sudo tee --append /etc/resolvconf/resolv.conf.d/head
-    $ sudo resolvconf -u
+This one will ignore the TLD configured on the dns-gen container.
 
-This is it. You can now start your containers and retrieve their IP:
+    $ docker run \
+      --environment VIRTUAL_HOST=test.docker
+      dockercloud/hello-world
 
-    $ docker run --name my_app --detach nginx
-    $ dig my_app.docker
-    $ dig sub.my_app.docker
+### 2. ahmetalpbalkan/wagl compatible way
 
-You can customize the DNS name by providing an environment variable, like this:
-`DOMAIN_NAME=subdomain.youdomain.com`
+The following statement respects the TLD configured on the dns-gen container.
 
-    $ docker run --env DOMAIN_NAME=foo.docker --detach nginx
-    $ dig foo.docker
-    $ dig sub.foo.docker
-    $ docker run --env DOMAIN_NAME=bar.docker,baz.docker --detach nginx
-    $ dig bar.docker
-    $ dig baz.docker
+    $ docker run \
+      --label dns.service=test \
+      --label dns.domain=project \
+      dockercloud/hello-world
+
+The domain for the container started above will be `test.project.TLD` where TLD is the TLD configured on your dns-gen container.
+
+
+The next example also respects the TLD configured on the dns-gen container, but adds it's own.
+
+    $ docker run \
+      --label dns.service=test \
+      --label dns.domain=project \
+      --label dns.tld=awesome \
+      dockercloud/hello-world
+
+This leads to the follwoing two domains pointing to the conatiner:
+1. test.project.TLD (TLD you set on the dns-gen conatiner)
+2. test.project.awesome (using the TLD you set on this container)
 
 ## Start the container automatically after reboot
 
@@ -51,9 +64,9 @@ after booting, by passing the option `--restart always` to your `run` command.
 
     $ docker run -d --name dns-gen \
       --restart always \
-      --publish 172.17.42.1:53:53/udp \
-      --volume /var/run/docker.sock:/var/run/docker.sock \
-      jderusse/dns-gen
+      --publish 54:53/udp \
+      --volume /var/run/docker.sock:/var/run/docker.sock:ro \
+      zetaron/dns-gen
 
 **beware**! When your host will restart, it may change the IP address of
 the `docker0` interface.
@@ -98,12 +111,6 @@ dns-gen.
 
 ### Advanced usage
 
-The previous method is simple to use, but suffer from drawback:
-
- * Containers won't resolve DNS from other containers
- * External DNS resolution may be slower
- * Some VPN changes the /etc/resolv.conf file which remove your configuration
-
 Instead of using the `docker0` interface and modifying `/etc/resolv.conf`,
 an other solution is to install localy a dnsmasq server (some distribs like
 ubuntu or debian are now using it by default) and forward requests to the
@@ -126,8 +133,8 @@ And listen to interfaces `lo` and `docker0`.
     $ docker run --daemon --name dns-gen \
       --restart always \
       --publish 54:53/udp \
-      --volume /var/run/docker.sock:/var/run/docker.sock \
-      jderusse/dns-gen -R
+      --volume /var/run/docker.sock:/var/run/docker.sock:ro \
+      zetaron/dns-gen -R
 
 > the option `-R` just tell dns-gen to not fallback to the default resolver
 > which avoid an infinity loop of resolution
@@ -164,4 +171,3 @@ Thank to this configuration the resolution workflow is now:
 
   [docker-gen]: https://github.com/jwilder/docker-gen
   [socket activation]: http://0pointer.de/blog/projects/socket-activation.html
-  [dns-sync]: https://github.com/jderusse/docker-dns-sync

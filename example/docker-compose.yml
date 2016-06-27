@@ -1,0 +1,28 @@
+version: "2"
+services:
+  dns:
+    image: zetaron/dns-gen
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+    - 54:53/udp
+  web-hello-world:
+    image: dockercloud/hello-world
+    labels:
+    - dns.service=test
+  web-hello-world-2:
+    image: dockercloud/hello-world
+    labels:
+    - dns.service=test2
+    - dns.domain=dns
+  web-hello-world-3:
+    image: dockercloud/hello-world
+    labels:
+    - dns.service=test3
+    - dns.domain=dns
+    - dns.tld=zetaron.de
+  web-hello-world-4:
+    image: dockercloud/hello-world
+    labels:
+    - dns.service=test4
+    - dns.tld=zetaron.de

@@ -1,3 +1,24 @@
-#!/usr/bin/env sh
+#!/usr/bin/env ash
 
-docker-gen -watch -notify "dnsmasq-reload -u root $@" /etc/dnsmasq.tmpl /etc/dnsmasq.conf
+set -e
+
+image="zetaron/dns-gen"
+
+# Warn if the DOCKER_HOST socket does not exist
+case "$DOCKER_HOST" in
+    unix://*)
+        socket_file=${DOCKER_HOST#unix://}
+        if ! [ -S $socket_file ]; then
+            cat >&2 <<-EOT
+ERROR: you neet to share your Docker host socket with a volume at $socket_file
+Typically you should run your $image with: \`-v /var/run/docker.sock:$socket_file:ro\`
+EOT
+            socketMissing=1
+        fi
+esac
+
+if [ "$socketMissing" = 1 -a "$1" = docker-gen ]; then
+    exit 1
+fi
+
+exec "$@"

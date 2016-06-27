@@ -1,0 +1,10 @@
+version: "2"
+services:
+  dns:
+    image: zetaron/dns-gen
+    restart: always
+    container_name: dns
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+    - 54:53/udp

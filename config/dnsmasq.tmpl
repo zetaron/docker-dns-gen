@@ -11,27 +11,32 @@ address=/{{ $host }}/{{ $network.IP }}
         {{ range $index, $network := .Container.Networks }}
             {{ if ne $network.IP "" }}
 address=/{{ $host }}.{{ $tld }}/{{ $network.IP }}
-address=/{{ $host }}.{{ $network.Name }}.{{ $tld }}/{{ $network.IP }}
             {{ end }}
         {{ end }}
     {{ end }}
 {{ end }}
 
-{{ $tld := or ($.Env.DOMAIN_TLD) "docker" }}
-{{ range $index, $container := $ }}
-    {{ $hosts := coalesce $container.Name (print "*." $container.Name) }}
-    {{ $host_part := split $container.Name "_" }}
-    {{ $host_part_len := len $host_part }}
-    {{ if eq $host_part_len 3 }}
-        {{ template "host" (dict "Container" $container "Host" (print (index $host_part 0)) "Tld" $tld) }}
-        {{ template "host" (dict "Container" $container "Host" (print (index $host_part 1) "." (index $host_part 0)) "Tld" $tld) }}
-        {{ template "host" (dict "Container" $container "Host" (print (index $host_part 2) "." (index $host_part 1) "." (index $host_part 0)) "Tld" $tld) }}
-    {{ end }}
-    {{ template "host" (dict "Container" $container "Host" $container.Name "Tld" $tld) }}
-{{ end }}
+{{ $CurrentContainer := where $ "ID" .Docker.CurrentContainerID | first }}
+{{ $primaryTld := (or (index $CurrentContainer.Labels "dns.tld") ($CurrentContainer.Env.DOMAIN_TLD) "docker") }}
 
-{{ range $host, $containers := groupByMulti $ "Env.DOMAIN_NAME" "," }}
+{{/* jwilder/nginx-proxy compatible */}}
+{{ range $host, $containers := groupByMulti $ "Env.VIRTUAL_HOST" "," }}
     {{ range $index, $container := $containers }}
         {{ template "host" (dict "Container" $container "Host" (print $host) "Tld" "") }}
+    {{ end }}
+{{ end }}
+
+{{/* ahmetalpbalkan/wagl compatible */}}
+{{ range $index, $container := (whereLabelExists . "dns.service") }}
+    {{ with $container }}
+        {{ $tld := (or (index .Labels "dns.tld") $primaryTld) }}
+        {{ $service := index .Labels "dns.service" }}
+        {{ $domain := index .Labels "dns.domain" }}
+
+        {{ if gt (len $domain) 0 }}
+            {{ template "host" (dict "Container" $container "Host" (print $service "." $domain) "Tld" $tld) }}
+        {{ else }}
+            {{ template "host" (dict "Container" $container "Host" (print $service) "Tld" $tld) }}
+        {{ end }}
     {{ end }}
 {{ end }}
