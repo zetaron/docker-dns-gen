@@ -18,7 +18,7 @@ Only the first found will be used, the label will be tried first then the enviro
       --volume /var/run/docker.sock:/var/run/docker.sock:ro \
       --label dns.tld=my.tld
       --environment DOMAIN_TLD=my.other.tld
-      zetaron/dns-gen
+      zetaron/docker-dns-gen
 
 ## Ways to configure domain names on your containers
 
@@ -66,7 +66,7 @@ after booting, by passing the option `--restart always` to your `run` command.
       --restart always \
       --publish 54:53/udp \
       --volume /var/run/docker.sock:/var/run/docker.sock:ro \
-      zetaron/dns-gen
+      zetaron/docker-dns-gen
 
 **beware**! When your host will restart, it may change the IP address of
 the `docker0` interface.
@@ -134,7 +134,7 @@ And listen to interfaces `lo` and `docker0`.
       --restart always \
       --publish 54:53/udp \
       --volume /var/run/docker.sock:/var/run/docker.sock:ro \
-      zetaron/dns-gen -R
+      zetaron/docker-dns-gen -R
 
 > the option `-R` just tell dns-gen to not fallback to the default resolver
 > which avoid an infinity loop of resolution
