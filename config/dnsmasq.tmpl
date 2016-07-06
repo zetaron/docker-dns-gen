@@ -11,6 +11,7 @@ address=/{{ $host }}/{{ $network.IP }}
         {{ range $index, $network := .Container.Networks }}
             {{ if ne $network.IP "" }}
 address=/{{ $host }}.{{ $tld }}/{{ $network.IP }}
+address=/{{ $host  }}.{{ $network.Name  }}.{{ $tld  }}/{{ $network.IP  }}
             {{ end }}
         {{ end }}
     {{ end }}
